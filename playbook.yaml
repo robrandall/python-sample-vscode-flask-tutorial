@@ -1,0 +1,66 @@
+---
+- name: Create Azure VM
+  hosts: localhost
+  connection: local
+  tasks:
+  - name: Create resource group
+    azure_rm_resourcegroup:
+      name: myResourceGroup2
+      location: northeurope
+      subscription_id: af5b0a4c-e9a6-45ce-abdb-0483209b81a0
+  - name: Create virtual network
+    azure_rm_virtualnetwork:
+      resource_group: myResourceGroup2
+      name: myVnet
+      address_prefixes: "10.0.0.0/16"
+  - name: Add subnet
+    azure_rm_subnet:
+      resource_group: myResourceGroup2
+      name: mySubnet
+      address_prefix: "10.0.1.0/24"
+      virtual_network: myVnet
+  - name: Create public IP address
+    azure_rm_publicipaddress:
+      resource_group: myResourceGroup2
+      allocation_method: Static
+      name: myPublicIP
+    register: output_ip_address
+  - name: Dump public IP for VM which will be created
+    debug:
+      msg: "The public IP is {{ output_ip_address.state.ip_address }}."
+  - name: Create Network Security Group that allows SSH
+    azure_rm_securitygroup:
+      resource_group: myResourceGroup2
+      name: myNetworkSecurityGroup
+      rules:
+        - name: SSH
+          protocol: Tcp
+          destination_port_range: 22
+          access: Allow
+          priority: 1001
+          direction: Inbound
+  - name: Create virtual network interface card
+    azure_rm_networkinterface:
+      resource_group: myResourceGroup2
+      name: myNIC
+      virtual_network: myVnet
+      subnet: mySubnet
+      public_ip_name: myPublicIP
+      security_group: myNetworkSecurityGroup
+  - name: Create VM
+    azure_rm_virtualmachine:
+      resource_group: myResourceGroup2
+      name: myVM
+      vm_size: Standard_DS1_v2
+      admin_username: rob
+      ssh_password_enabled: false
+      ssh_public_keys:
+        - path: /home/azureuser/.ssh/authorized_keys
+          key_data: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDhOL+Bsqz8dRKqZmOk3GKokDSjSXBmZm3OmTGiDmEL54QWZgf3GMQmC8jT5BBqTznutaeXI69pjELErG36Xw9/wWePQvJHKNi5TqT/djPd2zGhJbWRJPXHQ2OoFNWTxK4jSDGRuR3G6Ga694CvotoWVI8cnGR5ZD+FoP6JVs5I5W6RfvzGp4TrSprM50i1lnWCwNKdZvds6MKof2EC16EsypsOeK1bbUE2NPOzlJpZQp7xn/yVsPqQoR+/rFG9AxXeRQ2q+itz7gtJH3diXav7H8ZyO+aIZDXObyh6H0LzQooUhehR94Oud7+F0Xpc3a2neDxsxXcGdhtN2lzsvU/k1egthEKWOP8kcdO8gdpM6pJoXsSF/CYiJQ+CriAjN3zxBRRdmJrGGUpB2rqxk33S8oYvoaDTOAb6PGJDSQR96q8uqPqHhENeeP3Y714AIomohmwk50bhJzxPN2IGAH1jUA5oZZPry+bQO+Utcrt0kXms0Ztd5Rl43QJwyx5Xg+lZN6Rxf/25C8ehPTlM+XXK3tYbD7bAr1OmpMyhRd8v+TXxqX9Da9ojFnEXuRZGeS9JtVly7rZYYtQRhthICcla0TTFW1GodB/ARF2HKEWIqex+4TRQiWvKVXc/UkYWWTzKFp0mNP+tE5WQ8mLT56YqPm0ZkjsqkElRdYMTyzSHww== rob.randall1@gmail.com'
+      network_interfaces: myNIC
+      image:
+        offer: CentOS
+        publisher: OpenLogic
+        sku: '7.5'
+        version: latest
+      tags: { 'Ansible' : 'nginx'}
